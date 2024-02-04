@@ -445,6 +445,7 @@ impl<C: ClientContext + 'static> Drop for Client<C> {
         let context = Arc::clone(&self.context);
         let ptr = self.native_ptr() as usize;
         std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(60));
             unsafe { rdsys::rd_kafka_destroy(ptr as *mut RDKafka) }
             // Ensure `context` is only dropped after `rd_kafka_destroy`
             // returns, as the process of destruction may invoke callbacks on
