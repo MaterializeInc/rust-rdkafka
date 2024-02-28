@@ -276,9 +276,48 @@ fn build_librdkafka() {
         env::set_var("CMAKE_LIBRARY_PATH", cmake_library_paths.join(";"));
     }
 
+    // Add CPU specific flags.
+    specify_cpu(&mut config);
+
     println!("Configuring and compiling librdkafka");
     let dst = config.build();
 
     println!("cargo:rustc-link-search=native={}/lib", dst.display());
     println!("cargo:rustc-link-lib=static=rdkafka");
+}
+
+/// Extracts `target-cpu` from `CARGO_ENCODED_RUSTFLAGS`.
+fn target_cpu() -> Option<String> {
+    rustflags::from_env().find_map(|flag| match flag {
+        rustflags::Flag::Codegen { opt, value } if opt == "target-cpu" => value,
+        _ => None,
+    })
+}
+
+/// Adds `-march` and `-mtune` arguments (or equivalent) based on the set `target-cpu`.
+#[cfg(feature = "cmake-build")]
+fn specify_cpu(config: &mut cmake::Config) {
+    let target = env::var("TARGET").unwrap();
+
+    if let Some(target_cpu) = target_cpu() {
+        if target.contains("x86_64") {
+            let flag = format!("-march={target_cpu}");
+            config.cflag(&flag);
+            config.cxxflag(&flag);
+
+            // The x86-64-vX targets are generic and do not support tuning.
+            if !target_cpu.starts_with("x86-64-v") {
+                let flag = format!("-mtune={target_cpu}");
+                // Note: clang does not support `mtune` so we omit it here.
+                config.cxxflag(&flag);
+            }
+        } else if target.contains("aarch64") {
+            // clang only supports -march.
+            config.cflag(&format!("-march={target_cpu}"));
+            // The -mcpu argument is deprecated for x86 but supported for AArch64.
+            //
+            // See: https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html
+            config.cxxflag(&format!("-mcpu={target_cpu}"));
+        }
+    }
 }

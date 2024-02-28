@@ -24,6 +24,7 @@ sasl2-sys = { version = "0.1.6", optional = true }
 [build-dependencies]
 pkg-config = "0.3.9"
 cmake = { version = "0.1.0", optional = true }
+rustflags = "0.1.4"
 
 [lib]
 name = "rdkafka_sys"

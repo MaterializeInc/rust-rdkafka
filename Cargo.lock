@@ -1109,6 +1109,7 @@ dependencies = [
  "num_enum",
  "openssl-sys",
  "pkg-config",
+ "rustflags",
  "sasl2-sys",
  "zstd-sys",
 ]
@@ -1148,6 +1149,12 @@ checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
 dependencies = [
  "semver",
 ]
+
+[[package]]
+name = "rustflags"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e74f1ec0cda1aea3a3a6c0df066cd67acac62e24064532b871e8eafb0ec6c126"
 
 [[package]]
 name = "ryu"
