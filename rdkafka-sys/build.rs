@@ -299,6 +299,8 @@ fn target_cpu() -> Option<String> {
 fn specify_cpu(config: &mut cmake::Config) {
     let target = env::var("TARGET").unwrap();
 
+    // TODO(parkmycar): Dynamic detection of the C compiler, e.g. clang does not support `-mcpu`
+    // or `-mtune`.
     if let Some(target_cpu) = target_cpu() {
         if target.contains("x86_64") {
             let flag = format!("-march={target_cpu}");
@@ -308,16 +310,16 @@ fn specify_cpu(config: &mut cmake::Config) {
             // The x86-64-vX targets are generic and do not support tuning.
             if !target_cpu.starts_with("x86-64-v") {
                 let flag = format!("-mtune={target_cpu}");
-                // Note: clang does not support `mtune` so we omit it here.
+                config.cflag(&flag);
                 config.cxxflag(&flag);
             }
         } else if target.contains("aarch64") {
-            // clang only supports -march.
-            config.cflag(&format!("-march={target_cpu}"));
             // The -mcpu argument is deprecated for x86 but supported for AArch64.
             //
             // See: https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html
-            config.cxxflag(&format!("-mcpu={target_cpu}"));
+            let flag = format!("-mcpu={target_cpu}");
+            config.cflag(&flag);
+            config.cxxflag(&flag);
         }
     }
 }
