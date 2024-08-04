@@ -268,6 +268,10 @@ impl<C: ClientContext + 'static> Client<C> {
 
         unsafe { rdsys::rd_kafka_set_log_level(client_ptr, config.log_level as i32) };
 
+        if C::ENABLE_REFRESH_OAUTH_TOKEN {
+            unsafe { rdsys::rd_kafka_sasl_background_callbacks_enable(client_ptr) };
+        }
+
         Ok(Client {
             native: unsafe { NativeClient::from_ptr(client_ptr) },
             context,
