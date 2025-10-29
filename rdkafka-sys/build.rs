@@ -280,12 +280,12 @@ fn build_librdkafka() {
     // sets `-DNDEBUG` flags. This breaks librdkafka, which uses asserts for runtime error checking
     // (confluentinc/librdkafka#5099). We unset `NDEBUG` by manually overwriting the cmake's
     // `C_FLAGS` variables.
-    config.define("CMAKE_C_FLAGS_RELEASE", "-O3 -UNDEBUG");
-    config.define("CMAKE_CXX_FLAGS_RELEASE", "-O3 -UNDEBUG");
-    config.define("CMAKE_C_FLAGS_MINSIZEREL", "-O3 -UNDEBUG");
-    config.define("CMAKE_CXX_FLAGS_MINSIZEREL", "-O3 -UNDEBUG");
-    config.define("CMAKE_C_FLAGS_RELWITHDEBINFO", "-O3 -UNDEBUG");
-    config.define("CMAKE_CXX_FLAGS_RELWITHDEBINFO", "-O3 -UNDEBUG");
+    config.define("CMAKE_C_FLAGS_RELEASE", "-O3 -UNDEBUG -flto");
+    config.define("CMAKE_CXX_FLAGS_RELEASE", "-O3 -UNDEBUG -flto");
+    config.define("CMAKE_C_FLAGS_MINSIZEREL", "-O3 -UNDEBUG -flto");
+    config.define("CMAKE_CXX_FLAGS_MINSIZEREL", "-O3 -UNDEBUG -flto");
+    config.define("CMAKE_C_FLAGS_RELWITHDEBINFO", "-O3 -UNDEBUG -flto");
+    config.define("CMAKE_CXX_FLAGS_RELWITHDEBINFO", "-O3 -UNDEBUG -flto");
 
     println!("Configuring and compiling librdkafka");
     let dst = config.build();
