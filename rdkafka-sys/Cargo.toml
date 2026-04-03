@@ -54,6 +54,16 @@ ssl = ["openssl-sys"]
 # crate.
 ssl-vendored = ["ssl", "openssl-sys/vendored"]
 
+# Enable SSL support using a pre-built AWS-LC installation as the crypto
+# backend instead of OpenSSL. AWS-LC is API-compatible with OpenSSL and
+# provides FIPS 140-3 validation. librdkafka v2.12.1+ has the necessary
+# BoringSSL/no-ENGINE compatibility patches.
+#
+# Set the AWS_LC_DIR environment variable to the AWS-LC install prefix
+# (defaults to /opt/aws-lc). The install must contain lib/libssl.a,
+# lib/libcrypto.a, and include/openssl/ headers.
+ssl-awslc = ["cmake-build"]
+
 # Enable SASL GSSAPI support with Cyrus libsasl2.
 gssapi = ["ssl", "sasl2-sys"]
 

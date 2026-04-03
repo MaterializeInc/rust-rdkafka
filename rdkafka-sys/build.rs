@@ -95,7 +95,10 @@ fn build_librdkafka() {
         ldflags.push(var);
     }
 
-    if env::var("CARGO_FEATURE_SSL").is_ok() {
+    if env::var("CARGO_FEATURE_SSL_AWSLC").is_ok() {
+        // ssl-awslc requires cmake-build; this code path shouldn't be reached.
+        panic!("ssl-awslc feature requires cmake-build feature");
+    } else if env::var("CARGO_FEATURE_SSL").is_ok() {
         configure_flags.push("--enable-ssl".into());
         if let Ok(openssl_root) = env::var("DEP_OPENSSL_ROOT") {
             cflags.push(format!("-I{}/include", openssl_root));
@@ -238,7 +241,33 @@ fn build_librdkafka() {
         config.define("WITH_OAUTHBEARER_OIDC", "0");
     }
 
-    if env::var("CARGO_FEATURE_SSL").is_ok() {
+    if env::var("CARGO_FEATURE_SSL_AWSLC").is_ok() {
+        // Use a pre-built AWS-LC installation as the SSL backend for librdkafka.
+        // AWS-LC is API-compatible with OpenSSL and provides FIPS 140-3 validation.
+        //
+        // The AWS-LC installation must be pre-built (e.g., in the CI builder image)
+        // and its path provided via the AWS_LC_DIR environment variable. This avoids
+        // building AWS-LC from source in every Cargo build and ensures we use the
+        // exact FIPS-certified build.
+        //
+        // We cannot use the aws-lc-sys crate because it applies symbol prefixing
+        // (e.g., aws_lc_0_39_0_EVP_sha256) that is incompatible with C code
+        // expecting standard OpenSSL symbol names.
+        let aws_lc_dir = env::var("AWS_LC_DIR").unwrap_or_else(|_| {
+            "/opt/aws-lc".to_string()
+        });
+        eprintln!("Using pre-built AWS-LC from: {}", aws_lc_dir);
+        config.define("WITH_SSL", "1");
+        config.define("WITH_SASL_SCRAM", "1");
+        config.define("WITH_SASL_OAUTHBEARER", "1");
+        config.define("OPENSSL_ROOT_DIR", &aws_lc_dir);
+        // Tell cargo to link the AWS-LC static libraries. The static
+        // librdkafka.a references AWS-LC symbols but doesn't include them,
+        // so the final linker needs these.
+        println!("cargo:rustc-link-search=native={}/lib", aws_lc_dir);
+        println!("cargo:rustc-link-lib=static=ssl");
+        println!("cargo:rustc-link-lib=static=crypto");
+    } else if env::var("CARGO_FEATURE_SSL").is_ok() {
         config.define("WITH_SSL", "1");
         config.define("WITH_SASL_SCRAM", "1");
         config.define("WITH_SASL_OAUTHBEARER", "1");
