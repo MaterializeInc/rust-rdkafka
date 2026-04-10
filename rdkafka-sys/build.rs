@@ -107,6 +107,11 @@ fn find_or_build_aws_lc() -> String {
         .out_dir(&build_dir)
         .define("CMAKE_INSTALL_PREFIX", &install_dir)
         .define("CMAKE_INSTALL_LIBDIR", "lib")
+        // On macOS, AWS-LC's CMakeLists.txt only sets INCLUDEDIR/BINDIR
+        // when LIBDIR is not already defined. Since we set LIBDIR above,
+        // we must also provide these explicitly.
+        .define("CMAKE_INSTALL_INCLUDEDIR", "include")
+        .define("CMAKE_INSTALL_BINDIR", "bin")
         .define("BUILD_SHARED_LIBS", "0")
         .define("BUILD_TESTING", "0")
         .define("DISABLE_GO", "1")
