@@ -37,6 +37,106 @@ where
     }
 }
 
+/// Pin to the same AWS-LC version used by aws-lc-sys 0.39.0.
+const AWS_LC_VERSION: &str = "v1.71.0";
+
+/// Find a pre-built AWS-LC installation or build from source.
+///
+/// Resolution order:
+///   1. `AWS_LC_DIR` env var
+///   2. `/opt/aws-lc` (CI builder image)
+///   3. Build from source into `OUT_DIR/aws-lc-install`
+#[cfg(feature = "cmake-build")]
+fn find_or_build_aws_lc() -> String {
+    // 1. Explicit override via environment variable.
+    if let Ok(dir) = env::var("AWS_LC_DIR") {
+        let lib = Path::new(&dir).join("lib").join("libssl.a");
+        if lib.exists() {
+            eprintln!("Using pre-built AWS-LC from AWS_LC_DIR: {}", dir);
+            return dir;
+        }
+        panic!(
+            "AWS_LC_DIR={} is set but {}/lib/libssl.a does not exist",
+            dir, dir
+        );
+    }
+
+    // 2. Default CI location.
+    let default_dir = "/opt/aws-lc";
+    if Path::new(default_dir).join("lib/libssl.a").exists() {
+        eprintln!("Using pre-built AWS-LC from: {}", default_dir);
+        return default_dir.to_string();
+    }
+
+    // 3. Build from source.
+    eprintln!("No pre-built AWS-LC found; building from source (version {})...", AWS_LC_VERSION);
+    let out_dir = env::var("OUT_DIR").expect("OUT_DIR missing");
+    let install_dir = PathBuf::from(&out_dir).join("aws-lc-install");
+    let src_dir = PathBuf::from(&out_dir).join("aws-lc-src");
+
+    // If we already built it in a previous run, reuse it.
+    if install_dir.join("lib/libssl.a").exists() {
+        eprintln!("Reusing previously built AWS-LC from: {}", install_dir.display());
+        return install_dir.to_string_lossy().into_owned();
+    }
+
+    // Clone the source if needed.
+    if !src_dir.join("CMakeLists.txt").exists() {
+        eprintln!("Cloning AWS-LC {}...", AWS_LC_VERSION);
+        let status = Command::new("git")
+            .args([
+                "clone",
+                "--depth", "1",
+                "--branch", AWS_LC_VERSION,
+                "https://github.com/aws/aws-lc.git",
+            ])
+            .arg(&src_dir)
+            .status()
+            .expect("failed to run git clone for AWS-LC");
+        if !status.success() {
+            panic!("git clone of AWS-LC failed with status {}", status);
+        }
+    }
+
+    // Build with cmake.
+    let build_dir = PathBuf::from(&out_dir).join("aws-lc-build");
+    std::fs::create_dir_all(&build_dir).expect("failed to create aws-lc-build dir");
+
+    let mut cmake_cfg = cmake::Config::new(&src_dir);
+    cmake_cfg
+        .out_dir(&build_dir)
+        .define("CMAKE_INSTALL_PREFIX", &install_dir)
+        .define("CMAKE_INSTALL_LIBDIR", "lib")
+        .define("BUILD_SHARED_LIBS", "0")
+        .define("BUILD_TESTING", "0")
+        .define("DISABLE_GO", "1")
+        .define("DISABLE_PERL", "1")
+        // Build without symbol prefixing so librdkafka C code can use
+        // standard OpenSSL symbol names (SSL_new, EVP_sha256, etc.).
+        .define("BORINGSSL_PREFIX", "")
+        .define("BORINGSSL_PREFIX_SYMBOLS", "");
+
+    eprintln!("Building AWS-LC (this may take a few minutes on first build)...");
+    let dst = cmake_cfg.build();
+    eprintln!("AWS-LC built successfully at: {}", dst.display());
+
+    // The cmake crate installs into dst, verify the output.
+    let lib_path = dst.join("lib/libssl.a");
+    if !lib_path.exists() {
+        // cmake crate may use a different output layout; check install_dir too.
+        if install_dir.join("lib/libssl.a").exists() {
+            return install_dir.to_string_lossy().into_owned();
+        }
+        panic!(
+            "AWS-LC build completed but libssl.a not found at {} or {}",
+            lib_path.display(),
+            install_dir.join("lib/libssl.a").display()
+        );
+    }
+
+    dst.to_string_lossy().into_owned()
+}
+
 fn main() {
     if env::var("CARGO_FEATURE_DYNAMIC_LINKING").is_ok() {
         eprintln!("librdkafka will be linked dynamically");
@@ -242,21 +342,19 @@ fn build_librdkafka() {
     }
 
     if env::var("CARGO_FEATURE_SSL_AWSLC").is_ok() {
-        // Use a pre-built AWS-LC installation as the SSL backend for librdkafka.
-        // AWS-LC is API-compatible with OpenSSL and provides FIPS 140-3 validation.
-        //
-        // The AWS-LC installation must be pre-built (e.g., in the CI builder image)
-        // and its path provided via the AWS_LC_DIR environment variable. This avoids
-        // building AWS-LC from source in every Cargo build and ensures we use the
-        // exact FIPS-certified build.
+        // Use AWS-LC as the SSL backend for librdkafka. AWS-LC is API-compatible
+        // with OpenSSL and provides FIPS 140-3 validation.
         //
         // We cannot use the aws-lc-sys crate because it applies symbol prefixing
         // (e.g., aws_lc_0_39_0_EVP_sha256) that is incompatible with C code
         // expecting standard OpenSSL symbol names.
-        let aws_lc_dir = env::var("AWS_LC_DIR").unwrap_or_else(|_| {
-            "/opt/aws-lc".to_string()
-        });
-        eprintln!("Using pre-built AWS-LC from: {}", aws_lc_dir);
+        //
+        // Resolution order:
+        //   1. AWS_LC_DIR env var (explicit override)
+        //   2. /opt/aws-lc (CI builder image pre-built location)
+        //   3. Build from source via cmake (local development fallback)
+        let aws_lc_dir = find_or_build_aws_lc();
+        eprintln!("Using AWS-LC from: {}", aws_lc_dir);
         config.define("WITH_SSL", "1");
         config.define("WITH_SASL_SCRAM", "1");
         config.define("WITH_SASL_OAUTHBEARER", "1");
