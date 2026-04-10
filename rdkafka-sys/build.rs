@@ -110,11 +110,10 @@ fn find_or_build_aws_lc() -> String {
         .define("BUILD_SHARED_LIBS", "0")
         .define("BUILD_TESTING", "0")
         .define("DISABLE_GO", "1")
-        .define("DISABLE_PERL", "1")
-        // Build without symbol prefixing so librdkafka C code can use
-        // standard OpenSSL symbol names (SSL_new, EVP_sha256, etc.).
-        .define("BORINGSSL_PREFIX", "")
-        .define("BORINGSSL_PREFIX_SYMBOLS", "");
+        .define("DISABLE_PERL", "1");
+    // Do NOT set BORINGSSL_PREFIX — by default AWS-LC uses standard
+    // OpenSSL symbol names (SSL_new, EVP_sha256, etc.). Symbol prefixing
+    // is only added by aws-lc-sys, which we intentionally bypass here.
 
     eprintln!("Building AWS-LC (this may take a few minutes on first build)...");
     let dst = cmake_cfg.build();
