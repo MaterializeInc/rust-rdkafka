@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased (MaterializeInc fork)
+
+* Upgrade to librdkafka v2.16.0. The \`rdkafka-sys/librdkafka\` submodule now
+  points at the upstream \`v2.16.0\` tag of confluentinc/librdkafka, which
+  includes the \`WITH_OAUTHBEARER_OIDC=0\` compilation fix (confluentinc/librdkafka#5136)
+  that the submodule previously carried as a commit on top of v2.12.1.
+
+* Regenerate the bindings against librdkafka v2.16.0 (they were last generated
+  for v2.5.0). This adds, among others, the KIP-932 share consumer API
+  (\`rd_kafka_share_*\`, preview upstream) and \`rd_kafka_ElectLeaders\`.
+
+* Add the error codes introduced between librdkafka v2.5.0 and v2.16.0 to
+  \`RDKafkaErrorCode\`: \`DestroyBroker\` (-137), \`InconsistentTopicId\` (103),
+  \`MismatchedEndpointType\` (114), \`UnsupportedEndpointType\` (115),
+  \`UnknownControllerId\` (116), and \`InvalidRegistration\` (119) through
+  \`ShareSessionLimitReached\` (133).
+
 ## v4.3.0+1.9.2 (2022-10-29)
 
 * Upgrade to librdkafka v1.9.2.
