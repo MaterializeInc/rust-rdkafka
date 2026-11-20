@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased (MaterializeInc fork)
+
+* Upgrade to librdkafka v2.16.0.
+
+* Regenerate the bindings, which had not been regenerated since librdkafka
+  v2.5.0. The bindings now cover the error codes, enum values and functions
+  added since then, including the KIP-932 share consumer API.
+
+* Add the `RDKafkaErrorCode` variants for the error codes librdkafka added since
+  v2.5.0: `DestroyBroker`, `InconsistentTopicId`, `MismatchedEndpointType`,
+  `UnsupportedEndpointType`, `UnknownControllerId`, `InvalidRegistration`,
+  `TransactionAbortable`, `InvalidRecordState`, `ShareSessionNotFound`,
+  `InvalidShareSessionEpoch`, `FencedStateEpoch`, `InvalidVoterKey`,
+  `DuplicateVoter`, `VoterNotFound`, `InvalidRegularExpression`,
+  `RebootstrapRequired`, `StreamsInvalidTopology`,
+  `StreamsInvalidTopologyEpoch`, `StreamsTopologyFenced` and
+  `ShareSessionLimitReached`.
+
 ## v4.3.0+1.9.2 (2022-10-29)
 
 * Upgrade to librdkafka v1.9.2.
