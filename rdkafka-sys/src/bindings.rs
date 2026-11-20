@@ -3,7 +3,7 @@
 use libc::{addrinfo, c_char, c_int, c_void, sockaddr, FILE};
 use num_enum::TryFromPrimitive;
 
-pub const RD_KAFKA_VERSION: u32 = 33882367;
+pub const RD_KAFKA_VERSION: u32 = 34603263;
 pub const RD_KAFKA_DEBUG_CONTEXTS : & [u8 ; 138] = b"all,generic,broker,topic,metadata,feature,queue,msg,protocol,cgrp,security,fetch,interceptor,plugin,consumer,admin,eos,mock,assignor,conf\0" ;
 pub const RD_KAFKA_DESTROY_F_NO_CONSUMER_CLOSE: u32 = 8;
 pub const RD_KAFKA_OFFSET_BEGINNING: i32 = -2;
@@ -49,6 +49,7 @@ pub const RD_KAFKA_EVENT_ALTERUSERSCRAMCREDENTIALS_RESULT: u32 = 524288;
 pub const RD_KAFKA_EVENT_DESCRIBETOPICS_RESULT: u32 = 1048576;
 pub const RD_KAFKA_EVENT_DESCRIBECLUSTER_RESULT: u32 = 2097152;
 pub const RD_KAFKA_EVENT_LISTOFFSETS_RESULT: u32 = 4194304;
+pub const RD_KAFKA_EVENT_ELECTLEADERS_RESULT: u32 = 8388608;
 extern "C" {
     pub fn rd_kafka_version() -> c_int;
 }
@@ -149,6 +150,18 @@ pub struct rd_kafka_Uuid_s {
     _unused: [u8; 0],
 }
 pub type rd_kafka_Uuid_t = rd_kafka_Uuid_s;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct rd_kafka_topic_partition_result_s {
+    _unused: [u8; 0],
+}
+pub type rd_kafka_topic_partition_result_t = rd_kafka_topic_partition_result_s;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct rd_kafka_share_s {
+    _unused: [u8; 0],
+}
+pub type rd_kafka_share_t = rd_kafka_share_s;
 #[repr(i32)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, TryFromPrimitive)]
 pub enum rd_kafka_resp_err_t {
@@ -215,6 +228,7 @@ pub enum rd_kafka_resp_err_t {
     RD_KAFKA_RESP_ERR__AUTO_OFFSET_RESET = -140,
     RD_KAFKA_RESP_ERR__LOG_TRUNCATION = -139,
     RD_KAFKA_RESP_ERR__INVALID_DIFFERENT_RECORD = -138,
+    RD_KAFKA_RESP_ERR__DESTROY_BROKER = -137,
     RD_KAFKA_RESP_ERR__END = -100,
     RD_KAFKA_RESP_ERR_UNKNOWN = -1,
     RD_KAFKA_RESP_ERR_NO_ERROR = 0,
@@ -316,13 +330,32 @@ pub enum rd_kafka_resp_err_t {
     RD_KAFKA_RESP_ERR_FEATURE_UPDATE_FAILED = 96,
     RD_KAFKA_RESP_ERR_PRINCIPAL_DESERIALIZATION_FAILURE = 97,
     RD_KAFKA_RESP_ERR_UNKNOWN_TOPIC_ID = 100,
+    RD_KAFKA_RESP_ERR_INCONSISTENT_TOPIC_ID = 103,
     RD_KAFKA_RESP_ERR_FENCED_MEMBER_EPOCH = 110,
     RD_KAFKA_RESP_ERR_UNRELEASED_INSTANCE_ID = 111,
     RD_KAFKA_RESP_ERR_UNSUPPORTED_ASSIGNOR = 112,
     RD_KAFKA_RESP_ERR_STALE_MEMBER_EPOCH = 113,
+    RD_KAFKA_RESP_ERR_MISMATCHED_ENDPOINT_TYPE = 114,
+    RD_KAFKA_RESP_ERR_UNSUPPORTED_ENDPOINT_TYPE = 115,
+    RD_KAFKA_RESP_ERR_UNKNOWN_CONTROLLER_ID = 116,
     RD_KAFKA_RESP_ERR_UNKNOWN_SUBSCRIPTION_ID = 117,
     RD_KAFKA_RESP_ERR_TELEMETRY_TOO_LARGE = 118,
-    RD_KAFKA_RESP_ERR_END_ALL = 119,
+    RD_KAFKA_RESP_ERR_INVALID_REGISTRATION = 119,
+    RD_KAFKA_RESP_ERR_TRANSACTION_ABORTABLE = 120,
+    RD_KAFKA_RESP_ERR_INVALID_RECORD_STATE = 121,
+    RD_KAFKA_RESP_ERR_SHARE_SESSION_NOT_FOUND = 122,
+    RD_KAFKA_RESP_ERR_INVALID_SHARE_SESSION_EPOCH = 123,
+    RD_KAFKA_RESP_ERR_FENCED_STATE_EPOCH = 124,
+    RD_KAFKA_RESP_ERR_INVALID_VOTER_KEY = 125,
+    RD_KAFKA_RESP_ERR_DUPLICATE_VOTER = 126,
+    RD_KAFKA_RESP_ERR_VOTER_NOT_FOUND = 127,
+    RD_KAFKA_RESP_ERR_INVALID_REGULAR_EXPRESSION = 128,
+    RD_KAFKA_RESP_ERR_REBOOTSTRAP_REQUIRED = 129,
+    RD_KAFKA_RESP_ERR_STREAMS_INVALID_TOPOLOGY = 130,
+    RD_KAFKA_RESP_ERR_STREAMS_INVALID_TOPOLOGY_EPOCH = 131,
+    RD_KAFKA_RESP_ERR_STREAMS_TOPOLOGY_FENCED = 132,
+    RD_KAFKA_RESP_ERR_SHARE_SESSION_LIMIT_REACHED = 133,
+    RD_KAFKA_RESP_ERR_END_ALL = 134,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -606,6 +639,24 @@ pub struct rd_kafka_message_s {
     pub _private: *mut c_void,
 }
 pub type rd_kafka_message_t = rd_kafka_message_s;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct rd_kafka_messages_s {
+    _unused: [u8; 0],
+}
+pub type rd_kafka_messages_t = rd_kafka_messages_s;
+extern "C" {
+    pub fn rd_kafka_messages_count(messages: *const rd_kafka_messages_t) -> usize;
+}
+extern "C" {
+    pub fn rd_kafka_messages_get(
+        messages: *const rd_kafka_messages_t,
+        index: usize,
+    ) -> *mut rd_kafka_message_t;
+}
+extern "C" {
+    pub fn rd_kafka_messages_destroy(messages: *mut rd_kafka_messages_t);
+}
 extern "C" {
     pub fn rd_kafka_message_destroy(rkmessage: *mut rd_kafka_message_t);
 }
@@ -660,6 +711,9 @@ extern "C" {
 }
 extern "C" {
     pub fn rd_kafka_message_leader_epoch(rkmessage: *const rd_kafka_message_t) -> i32;
+}
+extern "C" {
+    pub fn rd_kafka_message_delivery_count(rkmessage: *const rd_kafka_message_t) -> i16;
 }
 extern "C" {
     pub fn rd_kafka_Uuid_base64str(uuid: *const rd_kafka_Uuid_t) -> *const c_char;
@@ -1154,6 +1208,27 @@ extern "C" {
     pub fn rd_kafka_destroy_flags(rk: *mut rd_kafka_t, flags: c_int);
 }
 extern "C" {
+    pub fn rd_kafka_share_queue_get_sasl(rkshare: *mut rd_kafka_share_t) -> *mut rd_kafka_queue_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_oauthbearer_set_token(
+        rkshare: *mut rd_kafka_share_t,
+        token_value: *const c_char,
+        md_lifetime_ms: i64,
+        md_principal_name: *const c_char,
+        extensions: *mut *const c_char,
+        extension_size: usize,
+        errstr: *mut c_char,
+        errstr_size: usize,
+    ) -> rd_kafka_resp_err_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_oauthbearer_set_token_failure(
+        rkshare: *mut rd_kafka_share_t,
+        errstr: *const c_char,
+    ) -> rd_kafka_resp_err_t;
+}
+extern "C" {
     pub fn rd_kafka_name(rk: *const rd_kafka_t) -> *const c_char;
 }
 extern "C" {
@@ -1526,9 +1601,24 @@ extern "C" {
     ) -> *mut rd_kafka_consumer_group_metadata_t;
 }
 extern "C" {
+    pub fn rd_kafka_consumer_group_metadata_group_id(
+        group_metadata: *const rd_kafka_consumer_group_metadata_t,
+    ) -> *const c_char;
+}
+extern "C" {
+    pub fn rd_kafka_consumer_group_metadata_group_instance_id(
+        group_metadata: *const rd_kafka_consumer_group_metadata_t,
+    ) -> *const c_char;
+}
+extern "C" {
     pub fn rd_kafka_consumer_group_metadata_member_id(
         group_metadata: *const rd_kafka_consumer_group_metadata_t,
     ) -> *const c_char;
+}
+extern "C" {
+    pub fn rd_kafka_consumer_group_metadata_generation_id(
+        group_metadata: *const rd_kafka_consumer_group_metadata_t,
+    ) -> i32;
 }
 extern "C" {
     pub fn rd_kafka_consumer_group_metadata_destroy(arg1: *mut rd_kafka_consumer_group_metadata_t);
@@ -1583,6 +1673,171 @@ extern "C" {
 }
 extern "C" {
     pub fn rd_kafka_purge(rk: *mut rd_kafka_t, purge_flags: c_int) -> rd_kafka_resp_err_t;
+}
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub enum rd_kafka_share_AcknowledgeType_s {
+    RD_KAFKA_SHARE_ACKNOWLEDGE_TYPE_ACCEPT = 1,
+    RD_KAFKA_SHARE_ACKNOWLEDGE_TYPE_RELEASE = 2,
+    RD_KAFKA_SHARE_ACKNOWLEDGE_TYPE_REJECT = 3,
+}
+pub use self::rd_kafka_share_AcknowledgeType_s as rd_kafka_share_AcknowledgeType_t;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct rd_kafka_share_partition_offsets_s {
+    _unused: [u8; 0],
+}
+pub type rd_kafka_share_partition_offsets_t = rd_kafka_share_partition_offsets_s;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct rd_kafka_share_partition_offsets_list_s {
+    _unused: [u8; 0],
+}
+pub type rd_kafka_share_partition_offsets_list_t = rd_kafka_share_partition_offsets_list_s;
+extern "C" {
+    pub fn rd_kafka_share_partition_offsets_list_count(
+        list: *const rd_kafka_share_partition_offsets_list_t,
+    ) -> usize;
+}
+extern "C" {
+    pub fn rd_kafka_share_partition_offsets_list_get(
+        list: *const rd_kafka_share_partition_offsets_list_t,
+        index: usize,
+    ) -> *const rd_kafka_share_partition_offsets_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_partition_offsets_list_destroy(
+        list: *mut rd_kafka_share_partition_offsets_list_t,
+    );
+}
+extern "C" {
+    pub fn rd_kafka_share_partition_offsets_partition(
+        partition_offsets: *const rd_kafka_share_partition_offsets_t,
+    ) -> *const rd_kafka_topic_partition_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_partition_offsets_offsets(
+        partition_offsets: *const rd_kafka_share_partition_offsets_t,
+    ) -> *const i64;
+}
+extern "C" {
+    pub fn rd_kafka_share_partition_offsets_offsets_cnt(
+        partition_offsets: *const rd_kafka_share_partition_offsets_t,
+    ) -> usize;
+}
+extern "C" {
+    pub fn rd_kafka_share_consumer_new(
+        conf: *mut rd_kafka_conf_t,
+        errstr: *mut c_char,
+        errstr_size: usize,
+    ) -> *mut rd_kafka_share_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_set_acknowledgement_commit_cb(
+        rkshare: *mut rd_kafka_share_t,
+        share_acknowledgement_commit_cb: Option<
+            unsafe extern "C" fn(
+                rkshare: *mut rd_kafka_share_t,
+                partitions: *mut rd_kafka_share_partition_offsets_list_t,
+                err: rd_kafka_resp_err_t,
+                opaque: *mut c_void,
+            ),
+        >,
+        opaque: *mut c_void,
+    ) -> *mut rd_kafka_error_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_subscribe(
+        rkshare: *mut rd_kafka_share_t,
+        topics: *const rd_kafka_topic_partition_list_t,
+    ) -> rd_kafka_resp_err_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_unsubscribe(rkshare: *mut rd_kafka_share_t) -> rd_kafka_resp_err_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_subscription(
+        rkshare: *mut rd_kafka_share_t,
+        topics: *mut *mut rd_kafka_topic_partition_list_t,
+    ) -> rd_kafka_resp_err_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_poll(
+        rkshare: *mut rd_kafka_share_t,
+        timeout_ms: c_int,
+        rkmessages: *mut *mut rd_kafka_messages_t,
+    ) -> *mut rd_kafka_error_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_acknowledge(
+        rkshare: *mut rd_kafka_share_t,
+        rkmessage: *const rd_kafka_message_t,
+    ) -> rd_kafka_resp_err_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_acknowledge_type(
+        rkshare: *mut rd_kafka_share_t,
+        rkmessage: *const rd_kafka_message_t,
+        type_: rd_kafka_share_AcknowledgeType_t,
+    ) -> rd_kafka_resp_err_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_acknowledge_offset(
+        rkshare: *mut rd_kafka_share_t,
+        topic: *const c_char,
+        partition: i32,
+        offset: i64,
+        type_: rd_kafka_share_AcknowledgeType_t,
+    ) -> rd_kafka_resp_err_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_commit_async(rkshare: *mut rd_kafka_share_t) -> *mut rd_kafka_error_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_commit_sync(
+        rkshare: *mut rd_kafka_share_t,
+        timeout_ms: c_int,
+        partitions: *mut *mut rd_kafka_topic_partition_list_t,
+    ) -> *mut rd_kafka_error_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_consumer_close(rkshare: *mut rd_kafka_share_t) -> *mut rd_kafka_error_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_consumer_close_queue(
+        rkshare: *mut rd_kafka_share_t,
+        rkqu: *mut rd_kafka_queue_t,
+    ) -> *mut rd_kafka_error_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_consumer_closed(rkshare: *mut rd_kafka_share_t) -> c_int;
+}
+extern "C" {
+    pub fn rd_kafka_share_destroy(rkshare: *mut rd_kafka_share_t) -> *mut rd_kafka_error_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_destroy_flags(
+        rkshare: *mut rd_kafka_share_t,
+        flags: c_int,
+    ) -> *mut rd_kafka_error_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_set_log_queue(
+        rkshare: *mut rd_kafka_share_t,
+        rkqu: *mut rd_kafka_queue_t,
+    ) -> *mut rd_kafka_error_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_sasl_background_callbacks_enable(
+        rkshare: *mut rd_kafka_share_t,
+    ) -> *mut rd_kafka_error_t;
+}
+extern "C" {
+    pub fn rd_kafka_share_sasl_set_credentials(
+        rkshare: *mut rd_kafka_share_t,
+        username: *const c_char,
+        password: *const c_char,
+    ) -> *mut rd_kafka_error_t;
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -1676,6 +1931,14 @@ pub enum rd_kafka_consumer_group_state_t {
     RD_KAFKA_CONSUMER_GROUP_STATE_EMPTY = 5,
     RD_KAFKA_CONSUMER_GROUP_STATE__CNT = 6,
 }
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub enum rd_kafka_consumer_group_type_t {
+    RD_KAFKA_CONSUMER_GROUP_TYPE_UNKNOWN = 0,
+    RD_KAFKA_CONSUMER_GROUP_TYPE_CONSUMER = 1,
+    RD_KAFKA_CONSUMER_GROUP_TYPE_CLASSIC = 2,
+    RD_KAFKA_CONSUMER_GROUP_TYPE__CNT = 3,
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct rd_kafka_group_info {
@@ -1713,10 +1976,22 @@ extern "C" {
     ) -> rd_kafka_consumer_group_state_t;
 }
 extern "C" {
+    pub fn rd_kafka_consumer_group_type_name(
+        type_: rd_kafka_consumer_group_type_t,
+    ) -> *const c_char;
+}
+extern "C" {
+    pub fn rd_kafka_consumer_group_type_code(name: *const c_char)
+        -> rd_kafka_consumer_group_type_t;
+}
+extern "C" {
     pub fn rd_kafka_group_list_destroy(grplist: *const rd_kafka_group_list);
 }
 extern "C" {
     pub fn rd_kafka_brokers_add(rk: *mut rd_kafka_t, brokerlist: *const c_char) -> c_int;
+}
+extern "C" {
+    pub fn rd_kafka_brokers_learned_ids(rk: *mut rd_kafka_t, cntp: *mut usize) -> *mut i32;
 }
 extern "C" {
     pub fn rd_kafka_set_logger(
@@ -1862,6 +2137,7 @@ pub type rd_kafka_DescribeCluster_result_t = rd_kafka_event_t;
 pub type rd_kafka_DescribeUserScramCredentials_result_t = rd_kafka_event_t;
 pub type rd_kafka_AlterUserScramCredentials_result_t = rd_kafka_event_t;
 pub type rd_kafka_ListOffsets_result_t = rd_kafka_event_t;
+pub type rd_kafka_ElectLeaders_result_t = rd_kafka_event_t;
 extern "C" {
     pub fn rd_kafka_event_CreateTopics_result(
         rkev: *mut rd_kafka_event_t,
@@ -1966,6 +2242,11 @@ extern "C" {
     pub fn rd_kafka_event_AlterUserScramCredentials_result(
         rkev: *mut rd_kafka_event_t,
     ) -> *const rd_kafka_AlterUserScramCredentials_result_t;
+}
+extern "C" {
+    pub fn rd_kafka_event_ElectLeaders_result(
+        rkev: *mut rd_kafka_event_t,
+    ) -> *const rd_kafka_ElectLeaders_result_t;
 }
 extern "C" {
     pub fn rd_kafka_queue_poll(
@@ -2239,6 +2520,16 @@ extern "C" {
         groupres: *const rd_kafka_group_result_t,
     ) -> *const rd_kafka_topic_partition_list_t;
 }
+extern "C" {
+    pub fn rd_kafka_topic_partition_result_partition(
+        partition_result: *const rd_kafka_topic_partition_result_t,
+    ) -> *const rd_kafka_topic_partition_t;
+}
+extern "C" {
+    pub fn rd_kafka_topic_partition_result_error(
+        partition_result: *const rd_kafka_topic_partition_result_t,
+    ) -> *const rd_kafka_error_t;
+}
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub enum rd_kafka_admin_op_t {
@@ -2264,7 +2555,8 @@ pub enum rd_kafka_admin_op_t {
     RD_KAFKA_ADMIN_OP_DESCRIBETOPICS = 19,
     RD_KAFKA_ADMIN_OP_DESCRIBECLUSTER = 20,
     RD_KAFKA_ADMIN_OP_LISTOFFSETS = 21,
-    RD_KAFKA_ADMIN_OP__CNT = 22,
+    RD_KAFKA_ADMIN_OP_ELECTLEADERS = 22,
+    RD_KAFKA_ADMIN_OP__CNT = 23,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -2336,6 +2628,13 @@ extern "C" {
         options: *mut rd_kafka_AdminOptions_t,
         consumer_group_states: *const rd_kafka_consumer_group_state_t,
         consumer_group_states_cnt: usize,
+    ) -> *mut rd_kafka_error_t;
+}
+extern "C" {
+    pub fn rd_kafka_AdminOptions_set_match_consumer_group_types(
+        options: *mut rd_kafka_AdminOptions_t,
+        consumer_group_types: *const rd_kafka_consumer_group_type_t,
+        consumer_group_types_cnt: usize,
     ) -> *mut rd_kafka_error_t;
 }
 extern "C" {
@@ -2514,7 +2813,8 @@ pub enum rd_kafka_ConfigSource_t {
     RD_KAFKA_CONFIG_SOURCE_DYNAMIC_DEFAULT_BROKER_CONFIG = 3,
     RD_KAFKA_CONFIG_SOURCE_STATIC_BROKER_CONFIG = 4,
     RD_KAFKA_CONFIG_SOURCE_DEFAULT_CONFIG = 5,
-    RD_KAFKA_CONFIG_SOURCE__CNT = 6,
+    RD_KAFKA_CONFIG_SOURCE_GROUP_CONFIG = 8,
+    RD_KAFKA_CONFIG_SOURCE__CNT = 9,
 }
 extern "C" {
     pub fn rd_kafka_ConfigSource_name(confsource: rd_kafka_ConfigSource_t) -> *const c_char;
@@ -2562,7 +2862,8 @@ pub enum rd_kafka_ResourceType_t {
     RD_KAFKA_RESOURCE_TOPIC = 2,
     RD_KAFKA_RESOURCE_GROUP = 3,
     RD_KAFKA_RESOURCE_BROKER = 4,
-    RD_KAFKA_RESOURCE__CNT = 5,
+    RD_KAFKA_RESOURCE_TRANSACTIONAL_ID = 5,
+    RD_KAFKA_RESOURCE__CNT = 6,
 }
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -2889,6 +3190,11 @@ extern "C" {
     ) -> rd_kafka_consumer_group_state_t;
 }
 extern "C" {
+    pub fn rd_kafka_ConsumerGroupListing_type(
+        grplist: *const rd_kafka_ConsumerGroupListing_t,
+    ) -> rd_kafka_consumer_group_type_t;
+}
+extern "C" {
     pub fn rd_kafka_ListConsumerGroups_result_valid(
         result: *const rd_kafka_ListConsumerGroups_result_t,
         cntp: *mut usize,
@@ -2970,6 +3276,11 @@ extern "C" {
     ) -> *const rd_kafka_Node_t;
 }
 extern "C" {
+    pub fn rd_kafka_ConsumerGroupDescription_type(
+        grpdesc: *const rd_kafka_ConsumerGroupDescription_t,
+    ) -> rd_kafka_consumer_group_type_t;
+}
+extern "C" {
     pub fn rd_kafka_ConsumerGroupDescription_member_count(
         grpdesc: *const rd_kafka_ConsumerGroupDescription_t,
     ) -> usize;
@@ -3009,6 +3320,11 @@ extern "C" {
     pub fn rd_kafka_MemberAssignment_partitions(
         assignment: *const rd_kafka_MemberAssignment_t,
     ) -> *const rd_kafka_topic_partition_list_t;
+}
+extern "C" {
+    pub fn rd_kafka_MemberDescription_target_assignment(
+        member: *const rd_kafka_MemberDescription_t,
+    ) -> *const rd_kafka_MemberAssignment_t;
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -3482,6 +3798,41 @@ extern "C" {
         options: *const rd_kafka_AdminOptions_t,
         rkqu: *mut rd_kafka_queue_t,
     );
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct rd_kafka_ElectLeaders_s {
+    _unused: [u8; 0],
+}
+pub type rd_kafka_ElectLeaders_t = rd_kafka_ElectLeaders_s;
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub enum rd_kafka_ElectionType_t {
+    RD_KAFKA_ELECTION_TYPE_PREFERRED = 0,
+    RD_KAFKA_ELECTION_TYPE_UNCLEAN = 1,
+}
+extern "C" {
+    pub fn rd_kafka_ElectLeaders_new(
+        election_type: rd_kafka_ElectionType_t,
+        partitions: *mut rd_kafka_topic_partition_list_t,
+    ) -> *mut rd_kafka_ElectLeaders_t;
+}
+extern "C" {
+    pub fn rd_kafka_ElectLeaders_destroy(elect_leaders: *mut rd_kafka_ElectLeaders_t);
+}
+extern "C" {
+    pub fn rd_kafka_ElectLeaders(
+        rk: *mut rd_kafka_t,
+        elect_leaders: *mut rd_kafka_ElectLeaders_t,
+        options: *const rd_kafka_AdminOptions_t,
+        rkqu: *mut rd_kafka_queue_t,
+    );
+}
+extern "C" {
+    pub fn rd_kafka_ElectLeaders_result_partitions(
+        result: *const rd_kafka_ElectLeaders_result_t,
+        cntp: *mut usize,
+    ) -> *mut *const rd_kafka_topic_partition_result_t;
 }
 extern "C" {
     pub fn rd_kafka_oauthbearer_set_token(
